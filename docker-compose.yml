@@ -1,0 +1,109 @@
+services:
+  user_service:
+    build: ./user_service
+    container_name: user_service
+    ports:
+      - "8000:8000"
+    env_file:
+      - ./user_service/.env
+    depends_on:
+      rabbitmq:
+        condition: service_started
+
+  rabbitmq:
+    image: rabbitmq:3-management
+    container_name: rabbitmq
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    healthcheck:
+      test: [ "CMD", "rabbitmq-diagnostics", "ping" ]
+      interval: 10s
+      timeout: 5s
+      retries: 15
+
+  account_service:
+    build: ./account_service
+    container_name: account_service
+    ports:
+      - "8001:8001"
+    env_file:
+      - ./account_service/.env
+    depends_on:
+      account_db:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_started
+
+  account_consumer:
+    build: ./account_service
+    container_name: account_consumer
+    command: [ "python", "-m", "app.services.rabbit_consumer" ]
+    working_dir: /app
+    env_file:
+      - ./account_service/.env
+    depends_on:
+      rabbitmq:
+        condition: service_healthy   # 🔑 RabbitMQ portu açılana kadar bekler
+      account_db:
+        condition: service_healthy
+    restart: always
+
+
+
+
+  transaction_service:
+    build: ./transaction_service
+    container_name: transaction_service
+    ports:
+      - "8004:8004"
+    env_file:
+      - ./transaction_service/.env
+    depends_on:
+      transaction_db:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_started
+
+  account_db:
+    image: postgres:17
+    container_name: account_db
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=account_db
+    ports:
+      - "5433:5432"
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U postgres" ]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    volumes:
+      - account_data:/var/lib/postgresql/data
+
+  transaction_db:
+    image: postgres:17
+    container_name: transaction_db
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=transaction_db
+    ports:
+      - "5434:5432"
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U postgres" ]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    volumes:
+      - transaction_data:/var/lib/postgresql/data
+
+
+
+volumes:
+  account_data:
+  transaction_data:
+  rabbitmq_data:
