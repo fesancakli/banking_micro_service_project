@@ -1,13 +1,14 @@
-import aio_pika
 import asyncio
 import json
 import logging
-from sqlalchemy.ext.asyncio import AsyncSession
+from decimal import Decimal
+
+import aio_pika
+import httpx
+from app.api.core.config import settings
 from app.db.base import get_db
 from app.repositories.account_repo import AccountRepository
-import httpx
-from decimal import Decimal
-from app.api.core.config import settings
+from sqlalchemy.ext.asyncio import AsyncSession
 
 # Logging ayarı
 logging.basicConfig(
@@ -29,7 +30,6 @@ async def process_message(message: aio_pika.IncomingMessage):
 
         async for db in get_db():
             try:
-                # Hesap var mı kontrol et
                 account = await AccountRepository.get_account_by_id(db, account_id)
                 if not account:
                     raise ValueError("Account not found")
@@ -53,7 +53,6 @@ async def process_message(message: aio_pika.IncomingMessage):
                     if not target:
                         raise ValueError("Target account not found")
 
-                    # Para aktarımı
                     account.balance -= amount
                     target.balance += amount
                     await AccountRepository.update_balance(db, account)
@@ -67,7 +66,6 @@ async def process_message(message: aio_pika.IncomingMessage):
                 logging.info(f"✅ Transaction {transaction_id} success olarak bildirildi")
 
             except Exception as e:
-                # Hata → Transaction Service'e failed bildir
                 logging.error(f"❌ Transaction {transaction_id} hata: {str(e)}")
                 await notify_transaction_service(transaction_id, "failed", str(e))
 
@@ -92,7 +90,6 @@ async def start_consumer():
                     "transaction_exchange", aio_pika.ExchangeType.TOPIC, durable=True
                 )
 
-                # Kuyruklar
                 deposit_queue = await channel.declare_queue("deposit_queue", durable=True)
                 await deposit_queue.bind(exchange, routing_key="transaction.deposit")
 
@@ -102,17 +99,12 @@ async def start_consumer():
                 transfer_queue = await channel.declare_queue("transfer_queue", durable=True)
                 await transfer_queue.bind(exchange, routing_key="transaction.transfer")
 
-                # Hepsini ayrı ayrı dinle
                 await deposit_queue.consume(process_message)
                 await withdraw_queue.consume(process_message)
                 await transfer_queue.consume(process_message)
 
                 logging.info(" [*] Waiting for transaction messages...")
-                await asyncio.Future()  # sonsuz dinleme
+                await asyncio.Future()
         except Exception as e:
             logging.error(f"⚠️ RabbitMQ bağlantı hatası: {e}, 5 saniye sonra tekrar denenecek...")
             await asyncio.sleep(5)
-
-
-if __name__ == "__main__":
-    asyncio.run(start_consumer())

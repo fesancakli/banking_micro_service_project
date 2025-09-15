@@ -1,3 +1,5 @@
+version: "3.9"
+
 services:
   user_service:
     build: ./user_service
@@ -8,7 +10,7 @@ services:
       - ./user_service/.env
     depends_on:
       rabbitmq:
-        condition: service_started
+        condition: service_healthy
 
   rabbitmq:
     image: rabbitmq:3-management
@@ -35,24 +37,8 @@ services:
       account_db:
         condition: service_healthy
       rabbitmq:
-        condition: service_started
-
-  account_consumer:
-    build: ./account_service
-    container_name: account_consumer
-    command: [ "python", "-m", "app.services.rabbit_consumer" ]
-    working_dir: /app
-    env_file:
-      - ./account_service/.env
-    depends_on:
-      rabbitmq:
-        condition: service_healthy   # 🔑 RabbitMQ portu açılana kadar bekler
-      account_db:
         condition: service_healthy
     restart: always
-
-
-
 
   transaction_service:
     build: ./transaction_service
@@ -65,7 +51,8 @@ services:
       transaction_db:
         condition: service_healthy
       rabbitmq:
-        condition: service_started
+        condition: service_healthy
+    restart: always
 
   account_db:
     image: postgres:17
@@ -100,8 +87,6 @@ services:
       retries: 5
     volumes:
       - transaction_data:/var/lib/postgresql/data
-
-
 
 volumes:
   account_data:
