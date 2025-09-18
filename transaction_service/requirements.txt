@@ -19,3 +19,5 @@ pydantic-settings==2.4.0
 python-dotenv==1.0.1
 aio-pika==9.4.1
 python-jose[cryptography]
+httpx
+prometheus-client

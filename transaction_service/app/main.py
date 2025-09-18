@@ -1,6 +1,7 @@
-from fastapi import FastAPI
 from app.api.v1 import transaction_routes
 from app.db.base import Base, engine
+from app.metrics import setup_metrics
+from fastapi import FastAPI
 
 
 # DB tablolarını oluştur (dev/test için)
@@ -10,6 +11,7 @@ async def init_models():
 
 
 app = FastAPI(title="Transaction Service")
+setup_metrics(app)
 
 app.include_router(transaction_routes.router)
 

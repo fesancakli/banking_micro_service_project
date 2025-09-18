@@ -14,5 +14,7 @@ passlib[bcrypt]==1.7.4
 # Auth & Security
 
 python-jose[cryptography]==3.3.0
-
+httpx
 aio_pika
+
+prometheus-client

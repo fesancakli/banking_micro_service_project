@@ -1,9 +1,10 @@
-from fastapi import FastAPI
 from app.api.v1.users import router as user_router
 from app.db.base import Base, engine
+from app.metrics import setup_metrics
+from fastapi import FastAPI
 
 app = FastAPI(title="User Service")
-
+setup_metrics(app)
 
 @app.on_event("startup")
 async def on_startup():
